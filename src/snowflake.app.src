@@ -1,11 +1,12 @@
 {application, snowflake,
  [
-  {description, ""},
+  {description, "A snowflake UUID service, a la Twitter."},
   {vsn, "1"},
-  {registered, []},
+  {registered, [snowflake]},
   {applications, [
                   kernel,
-                  stdlib
+                  stdlib,
+		  sasl
                  ]},
   {mod, { snowflake_app, []}},
   {env, []}
