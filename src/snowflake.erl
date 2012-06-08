@@ -101,23 +101,23 @@ send_uuid(From, MID, SID) ->
     UUID = <<Now:42, MID:10, SID:12>>,
     gen_server:reply(From, UUID).
 
-handle_call({new, Class}, From, State) ->
+handle_call({new, Class}, From, MID) ->
     %% TODO
     %% Here we can use the current state to update the sequence counter
     %% for any particular `Class' of ID.
-    erlang:spawn_link(?MODULE, send_uuid, [From]),
-    {noreply, State}.
+    erlang:spawn_link(?MODULE, send_uuid, [From, MID, 0]),
+    {noreply, MID}.
 
 handle_cast(_Message, State) ->
-    {no_reply, State}.
+    {noreply, State}.
 
 %% ----------------
 %% Server framework
 
 init(_Args) ->
     case application:get_env(machine_id) of
-	undefined -> {ok, <<0:10>>};
-	Number -> {ok, <<Number:10>>}
+	undefined -> {ok, 0};
+	{ok, Number} -> {ok, Number}
     end.
 
 terminate(normal, _State) ->

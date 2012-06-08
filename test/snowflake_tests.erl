@@ -3,4 +3,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 default_test() ->
-    ok.
+    snowflake:start(),
+    A = snowflake:new(),
+    B = snowflake:new(),
+    ?assertNot(A =:= B).
