@@ -2,8 +2,8 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
-default_test() ->
+collision_test_() ->
     snowflake:start(),
-    A = snowflake:new(),
-    B = snowflake:new(),
-    ?assertNot(A =:= B).
+    Snowflakes = 
+	[{snowflake:new(), snowflake:new()} || I <- lists:seq(1,20)],
+    [?_assertNot(A =:= B) || {A, B} <- Snowflakes].
