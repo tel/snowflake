@@ -107,7 +107,8 @@ handle_call({new, Class}, From, MID) ->
     %% for any particular `Class' of ID.
     %% As a shortcut, let's just pick a random number between 0 and
     %% 2^12-1
-    erlang:spawn_link(?MODULE, send_uuid, [From, MID, random:uniform(math:pow(2,12)-1)]),
+    erlang:spawn_link(?MODULE, send_uuid, 
+		      [From, MID, random:uniform(trunc(math:pow(2,12)-1))]),
     {noreply, MID}.
 
 handle_cast(_Message, State) ->
