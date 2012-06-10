@@ -104,7 +104,7 @@ handle_call({new, Class}, _From,
 	_ -> 
 	    {reply,
 	     <<Now:42, MID:10, SID:12>>,
-	     State#snowflake_state{sequence = 0}}
+	     State#snowflake_state{last = Now, sequence = 0}}
     end.
 
 handle_cast(_Message, State) ->
