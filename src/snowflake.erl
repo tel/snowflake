@@ -105,7 +105,9 @@ handle_call({new, Class}, From, MID) ->
     %% TODO
     %% Here we can use the current state to update the sequence counter
     %% for any particular `Class' of ID.
-    erlang:spawn_link(?MODULE, send_uuid, [From, MID, 0]),
+    %% As a shortcut, let's just pick a random number between 0 and
+    %% 2^12-1
+    erlang:spawn_link(?MODULE, send_uuid, [From, MID, random:uniform(math:pow(2,12)-1)]),
     {noreply, MID}.
 
 handle_cast(_Message, State) ->
