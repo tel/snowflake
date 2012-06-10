@@ -19,18 +19,16 @@
 -export([handle_call/3, handle_cast/2]).
 
 %% Private API
--export([send_uuid/1, send_uuid/3]).
-
 -define(SNOWFLAKE_EPOCH,
 	calendar:datetime_to_gregorian_seconds({{2012, 1, 1}, {0,0,0}})).
 -define(STD_EPOCH,
 	calendar:datetime_to_gregorian_seconds({{1970, 1, 1}, {0, 0, 0}})).
 -define(MS_EPOCH_DIFF, 1000*(?SNOWFLAKE_EPOCH - ?STD_EPOCH)).
 
-% -record(snowflake_state, 
-% 	{now :: <<_:41>>,
-% 	 machine :: <<_:10>>,
-% 	 sequence :: <<_:12>>}).
+-record(snowflake_state, 
+	{last :: integer(),
+	 machine :: integer(),
+	 sequence :: integer()}).
 
 % -type snowflake_state() :: #snowflake_state{}.
 
@@ -93,23 +91,21 @@ new(Class) ->
 %% -----------------
 %% Callback handling
 
-send_uuid(From) ->
-    send_uuid(From, 0, 0).
-
-send_uuid(From, MID, SID) ->
+handle_call({new, Class}, _From, 
+	    State = #snowflake_state{last = Last, 
+				     machine = MID, 
+				     sequence = SID}) ->
     Now = snowflake_now(),
-    UUID = <<Now:42, MID:10, SID:12>>,
-    gen_server:reply(From, UUID).
-
-handle_call({new, Class}, From, MID) ->
-    %% TODO
-    %% Here we can use the current state to update the sequence counter
-    %% for any particular `Class' of ID.
-    %% As a shortcut, let's just pick a random number between 0 and
-    %% 2^12-1
-    erlang:spawn_link(?MODULE, send_uuid, 
-		      [From, MID, random:uniform(trunc(math:pow(2,12)-1))]),
-    {noreply, MID}.
+    case Now of
+	Last -> 
+	    {reply, 
+	     <<Now:42, MID:10, SID:12>>, 
+	     State#snowflake_state{sequence = SID + 1}};
+	_ -> 
+	    {reply,
+	     <<Now:42, MID:10, SID:12>>,
+	     State#snowflake_state{sequence = 0}}
+    end.
 
 handle_cast(_Message, State) ->
     {noreply, State}.
@@ -118,9 +114,12 @@ handle_cast(_Message, State) ->
 %% Server framework
 
 init(_Args) ->
+    State0 = #snowflake_state{last = snowflake_now(),
+			      sequence = 0,
+			      machine = 0},
     case application:get_env(machine_id) of
-	undefined -> {ok, 0};
-	{ok, Number} -> {ok, Number}
+	undefined -> {ok, State0};
+	{ok, Number} -> {ok, State0#snowflake_state{machine = Number}}
     end.
 
 terminate(normal, _State) ->
