@@ -52,41 +52,19 @@ start() ->
 %% is a 12 bit integer counting the number of UUIDs generated on this
 %% server, this millisecond.
 
--spec new() -> uuid().
+-spec 
 %% @equiv new(default).
+new() -> uuid().
 new() ->
     new(default).
 
--spec new(Class :: atom()) -> uuid().
+-spec 
 %% @doc Synchronously returns a new snowflake `uuid()'.
+new(Class :: atom()) -> uuid().
 new(Class) ->
     gen_server:call(?MODULE, {new, Class}).
 
-% -spec request() -> ok.
-% %% @equiv request(default).
-% request() ->
-%     request(default).
-
-% % -spec request(Class :: atom()) -> ok.
-% %% @doc Request a new `uuid()' from the server.
-% request(Class) ->
-%     gen_server:call(?MODULE, {request, Class}).
-
-% -spec await() -> uuid().
-% %% @equiv await(infinity).
-% await() ->
-%     await(infinity).
-
-% -spec await(Timeout :: integer() | infinity) -> {ok, uuid()} | timeout.
-% %% @doc Wait for a previously requested `uuid()'. Will wait for
-% %% `Timeout' milliseconds.
-% await(Timeout) ->
-%     receive 
-% 	{reply, uuid, UUID} -> {ok, UUID}
-%     after Timeout ->
-% 	    timeout
-%     end.
-    
+%% TODO: Add asynchronous snowflake requesting?
 
 %% -----------------
 %% Callback handling
