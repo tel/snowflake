@@ -5,8 +5,7 @@
   {registered, [snowflake]},
   {applications, [
                   kernel,
-                  stdlib,
-		  sasl
+                  stdlib
                  ]},
   {mod, { snowflake_app, []}},
   {env, []}
