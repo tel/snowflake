@@ -31,7 +31,7 @@
 	{name :: atom(),
 	 last :: integer(),
 	 machine :: integer(),
-	 sequence :: integer()}).
+	 count :: integer()}).
 
 
 %% --------------------
@@ -40,22 +40,20 @@
 init([Name]) ->
     {ok, MID} = application:get_env(machine_id),
     {ok, #st{name = Name, last = snowflake_now(),
-	     sequence = 0, machine = MID}}.
+	     count = 0, machine = MID}}.
     
 handle_call(new, _From, State = #st{last = Last, 
 				    machine = MID, 
-				    sequence = SID}) ->
+				    count = Count}) ->
     Now = snowflake_now(),
-    case Now of
-	Last -> 
-	    {reply, 
-	     <<Now:42, MID:10, SID:12>>, 
-	     State#st{sequence = SID + 1}};
-	_ -> 
-	    {reply,
-	     <<Now:42, MID:10, SID:12>>,
-	     State#st{last = Now, sequence = 0}}
-    end.
+    SID = case Now of
+	      Last -> Count;
+	      %% New time point, reset the counter.
+	      _    -> 0
+	  end,
+    {reply, 
+     <<Now:42, MID:10, SID:12>>, 
+     State#st{last = Now, count = SID+1}}.
 
 handle_cast(_Message, State) -> {noreply, State}.
 handle_info(_Message, State) -> {noreply, State}.
