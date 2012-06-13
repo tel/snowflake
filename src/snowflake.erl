@@ -1,7 +1,8 @@
 % @author Joseph Abrahamson <me@jspha.com>
 %% @copyright 2012 Joseph Abrahamson
 
-%% @doc Snowflake, a distributed Erlang 64bit UUID server.
+%% @doc Snowflake, a distributed Erlang 64bit UUID server. Based on
+%% the Twitter project of the same name.
 
 -module(snowflake).
 
