@@ -41,39 +41,60 @@ new() -> uuid().
 new() -> new(normal).    
 
 -spec
+%% @doc Generates a new snowflake from the specified storm. The Storm can
+%% be specified by name (`atom()') or PID.
+new(Storm :: atom() | pid()) -> uuid().
+new(Name) when is_atom(Name) ->
+    case find_nearest() of
+	Server ->
+	    new(Server, Name)
+    end;
+new(Storm) when is_pid(Storm) ->
+    gen_server:call(Storm, new).
+
+-spec
 %% @doc Creates a new snowflake in a named series. Two snowflakes with
 %% different names can be identical, uniqueness is only guaranteed
 %% within a named sequence (and up to 4096
 %% snowflakes/millisecond/machine).
-new(Name :: atom() | pid()) -> uuid().
-new(Name) when is_atom(Name) ->     
-    Children = supervisor:which_children(?SUP),
+new(Server :: pid(), Name :: atom() | pid()) -> uuid().
+new(Server, Name) when is_atom(Name) ->     
+    Children = supervisor:which_children(Server),
     case lists:keyfind(Name, 1, Children) of
 	false -> 
-	    new(start_snowstorm(Name));
+	    new(start_snowstorm(Server, Name));
 	{Name, undefined, _, _} ->
 	    error_logger:info_msg(
 	      "Found a dead snowstorm, recreating it."),
-	    _ = supervisor:delete_child(?SUP, Name),
-	    new(start_snowstorm(Name));
+	    _ = supervisor:delete_child(Server, Name),
+	    new(start_snowstorm(Server, Name));
 	{Name, restarting, _, _} ->
 	    error_logger:info_msg(
-	      "Tried to get a flake from a restarting snowstorm!"),
+	      "Caught a restarting snowstorm. Waiting and trying again."),
 	    timer:sleep(500),
 	    new(Name);
 	{Name, Pid, _, _} -> new(Pid)
-    end;
-new(Name) when is_pid(Name) ->
-    gen_server:call(Name, new).
-					 
+    end.
 
 %% -----------
 %% Private API
 
-start_snowstorm(Name) when is_atom(Name) ->
+-spec
+%% @doc Autodiscovery mechanism that searches first for a snowflake
+%% service on this node, and then picks one randomly from all known.
+find_nearest() -> pid() | none.
+find_nearest() ->
+    case pg2:get_closest_pid(?MODULE) of
+	{error, _} -> none;
+	Pid -> Pid
+    end.
+	     
+-spec
+start_snowstorm(Server :: pid(), Name :: atom()) -> Pid :: pid().
+start_snowstorm(Server, Name) ->
     {ok, Storm} = 
 	supervisor:start_child(
-	  ?SUP,
+	  Server,
 	  {Name, {sf_snowstorm, start_link, [Name]},
 	   permanent, 5000, worker, [sf_snowstorm]}),
     Storm.
@@ -82,10 +103,18 @@ start_snowstorm(Name) when is_atom(Name) ->
 %% Application Behaviour
 
 start(_Type, _Args) ->
-    supervisor:start_link({local, ?SUP}, ?MODULE, []).
+    {ok, Pid} = supervisor:start_link({local, ?SUP}, ?MODULE, []),
+    pg2:create(?MODULE),
+    ok = pg2:join(?MODULE, Pid),
+    {ok, Pid}.
 
 stop(_State) ->
-    ok.
+    case whereis(?SUP) of
+	undefined -> ok;
+	Pid ->
+	    _ = pg2:leave(?MODULE, Pid),
+	    ok
+    end.
 
 
 %% --------------------
