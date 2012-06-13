@@ -22,3 +22,10 @@ docs:
 test: all
 	@$(REBAR) skip_deps=true eunit
 
+dialyzer: all
+	dialyzer ebin -Wunmatched_returns -Werror_handling -Wrace_conditions -Wunderspecs
+
+typer: 
+	typer src
+
+full: all test dialyzer typer

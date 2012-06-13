@@ -5,45 +5,22 @@
 %% the Twitter project of the same name.
 
 -module(snowflake).
-
 -author('Joseph Abrahamson <me@jspha.com>').
 
--behaviour(gen_server).
-
-%% Public API
+%% Public
 -export([new/0, new/1]).
-% -export([request/0, request/1, await/0, await/1]).
--export([start_link/0, start/0]).
 
-%% Behaviour API
--export([init/1, terminate/2, handle_info/2, code_change/3]).
--export([handle_call/3, handle_cast/2]).
+-behaviour(application).
+-export([start/2, stop/1]).
 
-%% Private API
--define(SNOWFLAKE_EPOCH,
-	calendar:datetime_to_gregorian_seconds({{2012, 1, 1}, {0,0,0}})).
--define(STD_EPOCH,
-	calendar:datetime_to_gregorian_seconds({{1970, 1, 1}, {0, 0, 0}})).
--define(MS_EPOCH_DIFF, 1000*(?SNOWFLAKE_EPOCH - ?STD_EPOCH)).
+-behaviour(supervisor).
+-export([init/1]).
 
--record(snowflake_state, 
-	{last :: integer(),
-	 machine :: integer(),
-	 sequence :: integer()}).
-
-% -type snowflake_state() :: #snowflake_state{}.
-
-%% --------------
-%% Initialization
-
-start_link() ->
-    gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
-
-start() ->
-    gen_server:start({local, ?MODULE}, ?MODULE, [], []).
+%% The supervisor name is bootstraped from this module.
+-define(SUP, snowstorm_sup).
 
 %% ----------
-%% Public API
+%% Some types
 
 -type uuid() :: <<_:64>>.
 %% A uuid binary consisting of `<<Time, MachineID, SequenceID>>' where
@@ -53,69 +30,70 @@ start() ->
 %% is a 12 bit integer counting the number of UUIDs generated on this
 %% server, this millisecond.
 
--spec 
-%% @equiv new(default).
+
+%% ----------
+%% Public API
+
+-spec
+%% @doc Creates a new snowflake.
+%% @equiv new(normal)
 new() -> uuid().
-new() ->
-    new(default).
+new() -> new(normal).    
 
--spec 
-%% @doc Synchronously returns a new snowflake `uuid()'.
-new(Class :: atom()) -> uuid().
-new(Class) ->
-    gen_server:call(?MODULE, {new, Class}).
+-spec
+%% @doc Creates a new snowflake in a named series. Two snowflakes with
+%% different names can be identical, uniqueness is only guaranteed
+%% within a named sequence (and up to 4096
+%% snowflakes/millisecond/machine).
+new(Name :: atom() | pid()) -> uuid().
+new(Name) when is_atom(Name) ->     
+    Children = supervisor:which_children(?SUP),
+    case lists:keyfind(Name, 1, Children) of
+	false -> 
+	    new(start_snowstorm(Name));
+	{Name, undefined, _, _} ->
+	    error_logger:info_msg(
+	      "Found a dead snowstorm, recreating it."),
+	    _ = supervisor:delete_child(?SUP, Name),
+	    new(start_snowstorm(Name));
+	{Name, restarting, _, _} ->
+	    error_logger:info_msg(
+	      "Tried to get a flake from a restarting snowstorm!"),
+	    timer:sleep(500),
+	    new(Name);
+	{Name, Pid, _, _} -> new(Pid)
+    end;
+new(Name) when is_pid(Name) ->
+    gen_server:call(Name, new).
+					 
 
-%% TODO: Add asynchronous snowflake requesting?
+%% -----------
+%% Private API
 
-%% -----------------
-%% Callback handling
+start_snowstorm(Name) when is_atom(Name) ->
+    {ok, Storm} = 
+	supervisor:start_child(
+	  ?SUP,
+	  {Name, {sf_snowstorm, start_link, [Name]},
+	   permanent, 5000, worker, [sf_snowstorm]}),
+    Storm.
 
-handle_call({new, Class}, _From, 
-	    State = #snowflake_state{last = Last, 
-				     machine = MID, 
-				     sequence = SID}) ->
-    Now = snowflake_now(),
-    case Now of
-	Last -> 
-	    {reply, 
-	     <<Now:42, MID:10, SID:12>>, 
-	     State#snowflake_state{sequence = SID + 1}};
-	_ -> 
-	    {reply,
-	     <<Now:42, MID:10, SID:12>>,
-	     State#snowflake_state{last = Now, sequence = 0}}
-    end.
+%% ---------------------
+%% Application Behaviour
 
-handle_cast(_Message, State) ->
-    {noreply, State}.
+start(_Type, _Args) ->
+    supervisor:start_link({local, ?SUP}, ?MODULE, []).
 
-%% ----------------
-%% Server framework
-
-init(_Args) ->
-    State0 = #snowflake_state{last = snowflake_now(),
-			      sequence = 0,
-			      machine = 0},
-    case application:get_env(machine_id) of
-	undefined -> {ok, State0};
-	{ok, Number} -> {ok, State0#snowflake_state{machine = Number}}
-    end.
-
-terminate(normal, _State) ->
+stop(_State) ->
     ok.
 
-handle_info(_Message, State) ->
-    {noreply, State}.
 
-code_change(_OldVsn, State, _Extra) ->
-    {ok, State}.
+%% --------------------
+%% Supervisor behaviour
 
-%% ---------
-%% Utilities
+%% Starts a blank supervisor --- real children will be added
+%% dynamically.
 
-%% @doc returns the number of milliseconds since UTC January 1st,
-%% 2012.
-snowflake_now() ->
-    {MegS, S, MuS} = erlang:now(),
-    Secs = (1000000*MegS + S)*1000 + trunc(MuS/1000),
-    Secs - ?MS_EPOCH_DIFF.
+init(_Args) ->
+    {ok, {{one_for_one, 5, 10}, []}}.
+

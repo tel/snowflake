@@ -2,8 +2,13 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
+collision_testGen() ->
+    ?_assertEqual(
+       false,
+       lists:any(
+	 fun ({A, B}) -> A =:= B end,
+	 [{snowflake:new(), snowflake:new()} || _I <- lists:seq(1,40)])).
+
 collision_test_() ->
-    snowflake:start(),
-    Snowflakes = 
-	[{snowflake:new(), snowflake:new()} || I <- lists:seq(1,20)],
-    [?_assertNot(A =:= B) || {A, B} <- Snowflakes].
+    application:start(snowflake),
+    [collision_testGen() || _I <- lists:seq(1,200)].
