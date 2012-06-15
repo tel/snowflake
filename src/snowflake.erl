@@ -9,6 +9,7 @@
 
 %% Public
 -export([new/0, new/1]).
+-export_type([uuid/0]).
 
 -behaviour(application).
 -export([start/2, stop/1]).
