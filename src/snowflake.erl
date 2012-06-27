@@ -77,6 +77,16 @@ new(Server, Name) when is_atom(Name) ->
 	{Name, Pid, _, _} -> new(Pid)
     end.
 
+
+-spec
+serialize(uuid()) -> binary().
+serialize(UUID) -> base64:encode(UUID).
+
+-spec
+deserialize(binary() | nonempty_string()) -> uuid().
+deserialize(Bin) when is_binary(Bin) -> base64:decode(Bin);
+deserialize(Str) when is_list(Str) -> base64:decode(list_to_binary(Str)).
+
 %% -----------
 %% Private API
 
