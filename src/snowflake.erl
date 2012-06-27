@@ -8,7 +8,7 @@
 -author('Joseph Abrahamson <me@jspha.com>').
 
 %% Public
--export([new/0, new/1]).
+-export([new/0, new/1, serialize/1, deserialize/1]).
 -export_type([uuid/0]).
 
 -behaviour(application).
