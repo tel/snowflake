@@ -14,3 +14,12 @@ Original design by [Twitter](https://github.com/twitter/snowflake).
 [93,46,42,42,42,53,55,43,42,43,73,36,34,33,39,52,48,39,35,
  54,36,34,33,34,40,35,33,33,34|...]
 ```
+
+# To do #
+
+* Fix for NTP adjustments
+  
+  Sometimes NTP will repeat milliseconds, but this violates the strict
+  ordering of snowflake. Snowflake should keep track of the last seen
+  time and wait until NTP catches back up so as to ensure
+  monotonicity.
