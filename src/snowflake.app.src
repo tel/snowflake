@@ -2,7 +2,7 @@
 {application, snowflake,
  [
   {description, "A snowflake UUID service, a la Twitter."},
-  {vsn, "1"},
+  {vsn, git},
   {registered, [snowflake, snowflake_sup]},
   {applications, [
                   kernel,
